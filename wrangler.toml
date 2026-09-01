@@ -1,19 +1,19 @@
+# name = "mdm-sistema-gestion"
+# main = "src/index.js"
+# compatibility_date = "2026-08-20"
+
+
+# directory = "./public"
+# binding = "ASSETS"
+
+
 name = "mdm-sistema-gestion"
 main = "src/index.js"
 compatibility_date = "2026-08-20"
 
-# Sirve todo lo que está en /public como archivos estáticos
-# (esto es lo que hace que /aula/ funcione, porque adentro de
-# public/ existe la carpeta aula/)
 [assets]
 directory = "./public"
 binding = "ASSETS"
-
-# --- KV: usuarios, sesiones y control de intentos de login ---
-# Reemplaza "PEGAR_ID_AQUI" por el id que te da cada comando:
-#   npx wrangler kv namespace create USERS
-#   npx wrangler kv namespace create SESSIONS
-#   npx wrangler kv namespace create LOGIN_TRIES
 
 [[kv_namespaces]]
 binding = "USERS"
@@ -27,11 +27,7 @@ id = "29a203994e344827ac74091d3fd03951"
 binding = "LOGIN_TRIES"
 id = "7a5dc957935a41aba181c1962bf34b4f"
 
-# --- D1: expedientes (esto lo activas en la fase de expedientes) ---
-# Reemplaza "PEGAR_ID_AQUI" por el id que te da:
-#   npx wrangler d1 create mdm-expedientes
-#
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "mdm-expedientes"
-# database_id = "PEGAR_ID_AQUI"
+[[d1_databases]]
+binding = "DB"
+database_name = "mdm-expedientes"
+database_id = "9955f43a-2ae0-44dd-8b84-456405248d0a"

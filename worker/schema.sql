@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS expedientes (
   fecha_nacimiento   TEXT,
   dui                TEXT,
   consulta_por       TEXT,
+  fecha_consulta     TEXT,    -- fecha en que se realizó esta consulta / historia clínica
   hora_inicio_hc     TEXT,    -- hora en que inició la Historia Clínica (ej. "14:30")
   presente_enfermedad TEXT,   -- historia de la enfermedad actual / padecimiento actual
   examen_fisico      TEXT,    -- notas del examen físico de esa consulta

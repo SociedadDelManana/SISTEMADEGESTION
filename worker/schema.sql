@@ -1,5 +1,10 @@
 -- Esquema D1 para expedientes clínicos — Médicos del Mañana
 -- Aplica con: npx wrangler d1 execute mdm-expedientes --file=./worker/schema.sql
+--
+-- NOTA: si ya tienes esta tabla creada en producción, este archivo por sí
+-- solo NO va a agregar las columnas nuevas (CREATE TABLE IF NOT EXISTS no
+-- altera tablas existentes). Usa migration.sql (incluido junto a este
+-- archivo) para aplicar los cambios a una base de datos ya existente.
 
 CREATE TABLE IF NOT EXISTS expedientes (
   id                 TEXT PRIMARY KEY,
@@ -9,6 +14,8 @@ CREATE TABLE IF NOT EXISTS expedientes (
   fecha_nacimiento   TEXT,
   dui                TEXT,
   consulta_por       TEXT,
+  hora_inicio_hc     TEXT,    -- hora en que inició la Historia Clínica (ej. "14:30")
+  examen_fisico      TEXT,    -- notas del examen físico de esa consulta
 
   -- Cada una de estas columnas guarda un arreglo JSON de entradas
   -- (fecha + detalle estructurado). Se leen/escriben como texto y se

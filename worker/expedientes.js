@@ -55,7 +55,7 @@ export async function handleExpedientesRoutes(request, env, url) {
   // ---------- LISTAR ----------
   if (!id && request.method === "GET") {
     const { results } = await env.DB.prepare(
-      `SELECT id, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por, updated_at
+      `SELECT id, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por, hora_inicio_hc, updated_at
        FROM expedientes ORDER BY updated_at DESC`
     ).all();
     return json({ ok: true, expedientes: results });
@@ -82,6 +82,8 @@ export async function handleExpedientesRoutes(request, env, url) {
       fecha_nacimiento: sanitizeText(body.fecha_nacimiento, 20),
       dui: sanitizeText(body.dui, 20),
       consulta_por: sanitizeText(body.consulta_por, 500),
+      hora_inicio_hc: sanitizeText(body.hora_inicio_hc, 10),
+      examen_fisico: sanitizeText(body.examen_fisico, 3000),
       created_by: session.username,
       created_at: now,
       updated_at: now,
@@ -93,10 +95,11 @@ export async function handleExpedientesRoutes(request, env, url) {
     await env.DB.prepare(
       `INSERT INTO expedientes
         (id, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por,
+         hora_inicio_hc, examen_fisico,
          antecedentes, alergias, medicamentos, signos_vitales, consultas,
          diagnosticos, tratamientos, seguimientos, actividades,
          created_by, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
       .bind(
         record.id,
@@ -106,6 +109,8 @@ export async function handleExpedientesRoutes(request, env, url) {
         record.fecha_nacimiento,
         record.dui,
         record.consulta_por,
+        record.hora_inicio_hc,
+        record.examen_fisico,
         lists.antecedentes,
         lists.alergias,
         lists.medicamentos,
@@ -152,6 +157,7 @@ export async function handleExpedientesRoutes(request, env, url) {
     await env.DB.prepare(
       `UPDATE expedientes SET
          nombre=?, sexo=?, edad=?, fecha_nacimiento=?, dui=?, consulta_por=?,
+         hora_inicio_hc=?, examen_fisico=?,
          antecedentes=?, alergias=?, medicamentos=?, signos_vitales=?, consultas=?,
          diagnosticos=?, tratamientos=?, seguimientos=?, actividades=?, updated_at=?
        WHERE id=?`
@@ -163,6 +169,8 @@ export async function handleExpedientesRoutes(request, env, url) {
         sanitizeText(body.fecha_nacimiento, 20),
         sanitizeText(body.dui, 20),
         sanitizeText(body.consulta_por, 500),
+        sanitizeText(body.hora_inicio_hc, 10),
+        sanitizeText(body.examen_fisico, 3000),
         lists.antecedentes,
         lists.alergias,
         lists.medicamentos,

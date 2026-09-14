@@ -69,6 +69,7 @@
     { name: "dui", label: "DUI", type: "text" },
     { name: "consulta_por", label: "Consulta / consultó por", type: "text", wide: true },
     { name: "hora_inicio_hc", label: "Hora de inicio de la HC", type: "time" },
+    { name: "presente_enfermedad", label: "Presente enfermedad", type: "textarea", wide: true },
     { name: "examen_fisico", label: "Examen físico", type: "textarea", wide: true },
   ];
 

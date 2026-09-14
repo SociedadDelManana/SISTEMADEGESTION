@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS expedientes (
   dui                TEXT,
   consulta_por       TEXT,
   hora_inicio_hc     TEXT,    -- hora en que inició la Historia Clínica (ej. "14:30")
+  presente_enfermedad TEXT,   -- historia de la enfermedad actual / padecimiento actual
   examen_fisico      TEXT,    -- notas del examen físico de esa consulta
 
   -- Cada una de estas columnas guarda un arreglo JSON de entradas

@@ -6,6 +6,9 @@
 --
 -- (usa --local en vez de --remote si primero quieres probarlo con
 -- `wrangler dev`)
+--
+-- NOTA: si ya corriste este archivo antes, NO lo vuelvas a correr — usa
+-- migration_2.sql para el campo nuevo "Presente Enfermedad".
 
 ALTER TABLE expedientes ADD COLUMN hora_inicio_hc TEXT;
 ALTER TABLE expedientes ADD COLUMN examen_fisico TEXT;

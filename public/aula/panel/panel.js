@@ -8,8 +8,6 @@
     item: (id) => `/aula/api/expedientes/${id}`,
   };
 
-  // ---------- Definición de las secciones repetibles ----------
-  // Cada sección se guarda en el backend como un arreglo de objetos.
   const SECTIONS = [
     { key: "antecedentes", label: "Antecedentes", fields: [
         { name: "fecha", label: "Fecha", type: "date" },
@@ -74,15 +72,18 @@
     { name: "examen_fisico", label: "Examen físico", type: "textarea", wide: true },
   ];
 
-  // ---------- Estado ----------
-  let currentUser = null;
-  let expedientes = [];       // resumen para la lista
-  let activeId = null;        // id del expediente abierto
-  let activeRecord = null;    // registro completo cargado
-  let mode = "view";          // "view" | "edit" | "new"
-  let draft = null;           // datos en edición
+  const SIGNATURE_FIELDS = [
+    { name: "medico_nombre", label: "Nombre de quien dio la consulta", type: "text" },
+    { name: "numero_junta", label: "Número de junta", type: "text" },
+  ];
 
-  // ---------- Referencias DOM ----------
+  let currentUser = null;
+  let expedientes = [];
+  let activeId = null;
+  let activeRecord = null;
+  let mode = "view";
+  let draft = null;
+
   const gate = document.getElementById("gate");
   const app = document.getElementById("app");
   const userChip = document.getElementById("userChip");
@@ -104,7 +105,6 @@
 
   logoImg.addEventListener("error", () => logoSlot.classList.add("no-logo"), { once: true });
 
-  // ---------- Utilidades ----------
   function showToast(message, kind) {
     toast.textContent = message;
     toast.classList.toggle("error", kind === "error");
@@ -122,6 +122,7 @@
   function emptyDraft() {
     const d = { id: null };
     for (const f of PERSONAL_FIELDS) d[f.name] = "";
+    for (const f of SIGNATURE_FIELDS) d[f.name] = "";
     for (const s of SECTIONS) d[s.key] = [];
     return d;
   }
@@ -137,7 +138,7 @@
       throw new Error("unauthorized");
     }
     let data = null;
-    try { data = await res.json(); } catch { /* sin cuerpo */ }
+    try { data = await res.json(); } catch { }
     if (!res.ok || !data || data.ok === false) {
       const err = (data && data.error) || `http_${res.status}`;
       throw new Error(err);
@@ -149,7 +150,6 @@
     window.location.href = "/aula/";
   }
 
-  // ---------- Sesión ----------
   async function checkSession() {
     try {
       const data = await api(API.me);
@@ -164,11 +164,10 @@
   }
 
   logoutBtn.addEventListener("click", async () => {
-    try { await api(API.logout, { method: "POST" }); } catch { /* seguimos igual */ }
+    try { await api(API.logout, { method: "POST" }); } catch { }
     redirectToLogin();
   });
 
-  // ---------- Lista ----------
   async function loadList() {
     try {
       const data = await api(API.list);
@@ -221,7 +220,6 @@
     renderDetail();
   });
 
-  // ---------- Abrir un expediente ----------
   async function openExpediente(id) {
     activeId = id;
     mode = "view";
@@ -239,7 +237,6 @@
     }
   }
 
-  // ---------- Render del detalle (enrutador de modo) ----------
   function renderDetail() {
     if (mode === "new") {
       detailEmpty.classList.add("hidden");
@@ -264,7 +261,6 @@
     }
   }
 
-  // ---------- Vista de solo lectura ----------
   function renderView(rec) {
     const personalHtml = PERSONAL_FIELDS.map((f) => `
       <div class="info-field">
@@ -294,6 +290,12 @@
         </div>`;
     }).join("");
 
+    const signatureHtml = SIGNATURE_FIELDS.map((f) => `
+      <div class="info-field">
+        <label>${escapeHtml(f.label)}</label>
+        <div class="info-value">${escapeHtml(rec[f.name]) || "—"}</div>
+      </div>`).join("");
+
     return `
       <div class="detail-header">
         <h1>${escapeHtml(rec.nombre)}</h1>
@@ -305,6 +307,7 @@
       <p class="detail-subline">Actualizado ${new Date(rec.updated_at).toLocaleString("es-SV")}</p>
       <div class="info-grid">${personalHtml}</div>
       ${sectionsHtml}
+      <div class="signature-block">${signatureHtml}</div>
     `;
   }
 
@@ -319,7 +322,6 @@
     });
   }
 
-  // ---------- Formulario (crear / editar) ----------
   function fieldInput(f, value) {
     const val = escapeHtml(value ?? "");
     if (f.type === "select") {
@@ -342,6 +344,12 @@
 
     const sectionsHtml = SECTIONS.map((s) => renderSectionEditor(s, d[s.key] || [])).join("");
 
+    const signatureHtml = SIGNATURE_FIELDS.map((f) => `
+      <div class="field">
+        <label>${escapeHtml(f.label)}</label>
+        ${fieldInput(f, d[f.name])}
+      </div>`).join("");
+
     return `
       <form id="expedienteForm">
         <div class="detail-header">
@@ -353,6 +361,7 @@
         <p class="detail-subline">Información personal</p>
         <div class="info-grid" id="personalGrid">${personalHtml}</div>
         <div id="sectionsWrap">${sectionsHtml}</div>
+        <div class="signature-block" id="signatureBlock">${signatureHtml}</div>
         <div class="form-actions">
           <button type="button" class="btn-ghost" id="cancelBtn2">Cancelar</button>
           <button type="submit" class="btn-primary" id="saveBtn">Guardar expediente</button>
@@ -407,7 +416,6 @@
       }
     }
 
-    // Botones "agregar registro" por sección
     form.querySelectorAll("[data-add]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const key = btn.getAttribute("data-add");
@@ -417,7 +425,6 @@
       });
     });
 
-    // Botones "eliminar registro"
     form.querySelectorAll(".section-block").forEach((block) => {
       const key = block.getAttribute("data-section");
       block.querySelectorAll("[data-remove]").forEach((btn) => {
@@ -463,11 +470,13 @@
     });
   }
 
-  // Lee los campos actualmente visibles en el DOM y los vuelca en `draft`,
-  // para no perder lo que el usuario escribió al re-renderizar (agregar/quitar filas).
   function syncDraftFromForm(form) {
     for (const f of PERSONAL_FIELDS) {
       const el = form.querySelector(`#personalGrid [name="${f.name}"]`);
+      if (el) draft[f.name] = el.value;
+    }
+    for (const f of SIGNATURE_FIELDS) {
+      const el = form.querySelector(`#signatureBlock [name="${f.name}"]`);
       if (el) draft[f.name] = el.value;
     }
     for (const s of SECTIONS) {
@@ -484,7 +493,6 @@
     }
   }
 
-  // ---------- Confirmación de borrado ----------
   let pendingDelete = null;
 
   function openConfirm(rec) {
@@ -518,6 +526,5 @@
     pendingDelete = null;
   });
 
-  // ---------- Arranque ----------
   checkSession();
 })();

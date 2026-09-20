@@ -20,7 +20,6 @@
   --danger: #b3382a;
   --danger-soft: rgba(179, 56, 42, 0.08);
 
-  /* Compatibilidad con estilos inline generados por panel.js */
   --bg-void: var(--gray-50);
   --panel: var(--white);
   --panel-2: var(--gray-50);
@@ -52,8 +51,6 @@ body {
 
 .hidden { display: none !important; }
 
-/* ---------- Gate (comprobación de sesión) ---------- */
-
 .gate {
   min-height: 100svh;
   display: flex;
@@ -75,8 +72,6 @@ body {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* ---------- Topbar ---------- */
 
 .topbar {
   display: flex;
@@ -119,8 +114,6 @@ body {
   border: 1px solid var(--gray-200);
 }
 
-/* ---------- Layout de dos columnas ---------- */
-
 .layout {
   display: grid;
   grid-template-columns: 340px 1fr;
@@ -134,8 +127,6 @@ body {
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
 }
-
-/* ---------- Panel de lista ---------- */
 
 .list-pane {
   background: var(--white);
@@ -194,8 +185,6 @@ body {
   display: flex; gap: 8px; flex-wrap: wrap;
 }
 
-/* ---------- Panel de detalle ---------- */
-
 .detail-pane {
   background: var(--white);
   border: 1px solid var(--gray-200);
@@ -242,8 +231,6 @@ body {
   margin: 0 0 24px;
 }
 
-/* ---------- Bloques de información personal ---------- */
-
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -286,8 +273,6 @@ body {
   border-color: var(--navy-600); background: var(--white); box-shadow: 0 0 0 3px var(--navy-soft-2);
 }
 .field { margin-bottom: 14px; }
-
-/* ---------- Secciones repetibles ---------- */
 
 .section-block {
   border-top: 1px solid var(--gray-200);
@@ -387,8 +372,6 @@ body {
 }
 .btn-add-entry:hover { border-color: var(--navy-600); background: var(--navy-soft); }
 
-/* ---------- Botones genéricos ---------- */
-
 .btn-primary, .btn-ghost, .btn-danger {
   border: none;
   border-radius: var(--radius-sm);
@@ -419,7 +402,36 @@ body {
   border-top: 1px solid var(--gray-200);
 }
 
-/* ---------- Diálogo de confirmación ---------- */
+.signature-block {
+  width: 240px;
+  max-width: 100%;
+  margin: 28px 0 0 auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+  text-align: right;
+}
+
+.signature-block .field,
+.signature-block .info-field {
+  margin-bottom: 10px;
+  text-align: right;
+}
+
+.signature-block label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 1px;
+}
+
+.signature-block input {
+  text-align: right;
+  font-size: 13px;
+  padding: 7px 10px;
+}
+
+.signature-block .info-value {
+  font-size: 13.5px;
+}
 
 .dialog-overlay {
   position: fixed; inset: 0;
@@ -439,8 +451,6 @@ body {
 .dialog h2 { font-family: var(--font-display); font-size: 17px; margin: 0 0 8px; color: var(--navy-900); }
 .dialog p { color: var(--gray-700); font-size: 13.5px; margin: 0 0 20px; }
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
-
-/* ---------- Toast ---------- */
 
 .toast {
   position: fixed;

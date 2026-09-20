@@ -1,7 +1,5 @@
 import * as auth from "./auth.js";
 
-// Secciones repetibles del expediente. Cada una se guarda como un arreglo
-// JSON de entradas dentro de su columna en D1.
 export const LIST_FIELDS = [
   "antecedentes",
   "alergias",
@@ -23,7 +21,6 @@ function json(data, status = 200, extraHeaders = {}) {
 
 function normalizeListField(value) {
   if (!Array.isArray(value)) return [];
-  // Cada entrada debe ser un objeto plano; se descarta cualquier otra cosa.
   return value.filter((item) => item && typeof item === "object" && !Array.isArray(item));
 }
 
@@ -45,14 +42,12 @@ function sanitizeText(value, max = 500) {
 }
 
 export async function handleExpedientesRoutes(request, env, url) {
-  // Toda esta ruta exige una sesión válida (cookie mdm_session httpOnly).
   const session = await auth.getSession(env, request);
   if (!session) return json({ ok: false, error: "unauthorized" }, 401);
 
-  const parts = url.pathname.split("/").filter(Boolean); // ["aula","api","expedientes", ":id"?]
+  const parts = url.pathname.split("/").filter(Boolean);
   const id = parts[3] || null;
 
-  // ---------- LISTAR ----------
   if (!id && request.method === "GET") {
     const { results } = await env.DB.prepare(
       `SELECT id, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por, fecha_consulta, hora_inicio_hc, updated_at
@@ -61,7 +56,6 @@ export async function handleExpedientesRoutes(request, env, url) {
     return json({ ok: true, expedientes: results });
   }
 
-  // ---------- CREAR ----------
   if (!id && request.method === "POST") {
     let body;
     try {
@@ -86,6 +80,8 @@ export async function handleExpedientesRoutes(request, env, url) {
       hora_inicio_hc: sanitizeText(body.hora_inicio_hc, 10),
       presente_enfermedad: sanitizeText(body.presente_enfermedad, 3000),
       examen_fisico: sanitizeText(body.examen_fisico, 3000),
+      medico_nombre: sanitizeText(body.medico_nombre, 200),
+      numero_junta: sanitizeText(body.numero_junta, 50),
       created_by: session.username,
       created_at: now,
       updated_at: now,
@@ -98,10 +94,11 @@ export async function handleExpedientesRoutes(request, env, url) {
       `INSERT INTO expedientes
         (id, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por,
          fecha_consulta, hora_inicio_hc, presente_enfermedad, examen_fisico,
+         medico_nombre, numero_junta,
          antecedentes, alergias, medicamentos, signos_vitales, consultas,
          diagnosticos, tratamientos, seguimientos, actividades,
          created_by, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
       .bind(
         record.id,
@@ -115,6 +112,8 @@ export async function handleExpedientesRoutes(request, env, url) {
         record.hora_inicio_hc,
         record.presente_enfermedad,
         record.examen_fisico,
+        record.medico_nombre,
+        record.numero_junta,
         lists.antecedentes,
         lists.alergias,
         lists.medicamentos,
@@ -133,14 +132,12 @@ export async function handleExpedientesRoutes(request, env, url) {
     return json({ ok: true, id: record.id });
   }
 
-  // ---------- OBTENER UNO ----------
   if (id && request.method === "GET") {
     const row = await env.DB.prepare("SELECT * FROM expedientes WHERE id = ?").bind(id).first();
     if (!row) return json({ ok: false, error: "not_found" }, 404);
     return json({ ok: true, expediente: rowToExpediente(row) });
   }
 
-  // ---------- ACTUALIZAR ----------
   if (id && request.method === "PUT") {
     let body;
     try {
@@ -162,6 +159,7 @@ export async function handleExpedientesRoutes(request, env, url) {
       `UPDATE expedientes SET
          nombre=?, sexo=?, edad=?, fecha_nacimiento=?, dui=?, consulta_por=?,
          fecha_consulta=?, hora_inicio_hc=?, presente_enfermedad=?, examen_fisico=?,
+         medico_nombre=?, numero_junta=?,
          antecedentes=?, alergias=?, medicamentos=?, signos_vitales=?, consultas=?,
          diagnosticos=?, tratamientos=?, seguimientos=?, actividades=?, updated_at=?
        WHERE id=?`
@@ -177,6 +175,8 @@ export async function handleExpedientesRoutes(request, env, url) {
         sanitizeText(body.hora_inicio_hc, 10),
         sanitizeText(body.presente_enfermedad, 3000),
         sanitizeText(body.examen_fisico, 3000),
+        sanitizeText(body.medico_nombre, 200),
+        sanitizeText(body.numero_junta, 50),
         lists.antecedentes,
         lists.alergias,
         lists.medicamentos,
@@ -194,7 +194,6 @@ export async function handleExpedientesRoutes(request, env, url) {
     return json({ ok: true });
   }
 
-  // ---------- BORRAR ----------
   if (id && request.method === "DELETE") {
     const existing = await env.DB.prepare("SELECT id FROM expedientes WHERE id = ?").bind(id).first();
     if (!existing) return json({ ok: false, error: "not_found" }, 404);

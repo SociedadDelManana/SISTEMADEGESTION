@@ -1,7 +1,5 @@
 import * as auth from "./auth.js";
 
-// Secciones repetibles históricas de Medicina general. Siguen en sus propias
-// columnas para no tocar los expedientes que ya están guardados.
 export const LIST_FIELDS = [
   "antecedentes",
   "alergias",
@@ -14,11 +12,6 @@ export const LIST_FIELDS = [
   "actividades",
 ];
 
-export const TIPOS = ["general", "nino_sano", "psicologico"];
-
-// Tope de tamaño del bloque "datos" de un expediente.
-const MAX_DATOS_BYTES = 200 * 1024;
-
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -26,18 +19,21 @@ function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
-function parseJson(text, fallback) {
-  try {
-    const value = JSON.parse(text);
-    return value ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function normalizeListField(value) {
   if (!Array.isArray(value)) return [];
   return value.filter((item) => item && typeof item === "object" && !Array.isArray(item));
+}
+
+function rowToExpediente(row) {
+  const out = { ...row };
+  for (const field of LIST_FIELDS) {
+    try {
+      out[field] = JSON.parse(row[field] || "[]");
+    } catch {
+      out[field] = [];
+    }
+  }
+  return out;
 }
 
 function sanitizeText(value, max = 500) {
@@ -45,175 +41,159 @@ function sanitizeText(value, max = 500) {
   return value.trim().slice(0, max);
 }
 
-// La edad puede ser un número (años) o texto corto (ej. "8 meses").
-function normalizeEdad(value) {
-  if (value === null || value === undefined) return null;
-  const s = String(value).trim().slice(0, 30);
-  if (!s) return null;
-  return /^\d+(\.\d+)?$/.test(s) ? Number(s) : s;
-}
-
-function cleanDatos(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return JSON.parse(JSON.stringify(value));
-}
-
-function rowToExpediente(row) {
-  const out = { ...row, tipo: row.tipo || "general" };
-  for (const field of LIST_FIELDS) out[field] = parseJson(row[field], []);
-  out.datos = parseJson(row.datos, {});
-  return out;
-}
-
-async function readBody(request) {
-  try {
-    const body = await request.json();
-    return body && typeof body === "object" ? body : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function handleExpedientesRoutes(request, env, url) {
-  // Toda esta ruta exige una sesión válida (cookie mdm_session httpOnly).
   const session = await auth.getSession(env, request);
   if (!session) return json({ ok: false, error: "unauthorized" }, 401);
 
-  try {
-    return await route(request, env, url, session);
-  } catch (err) {
-    // Se ve en `npx wrangler tail`; al navegador solo le llega un error genérico.
-    console.error("expedientes error:", err && err.message ? err.message : err);
-    return json({ ok: false, error: "server_error" }, 500);
-  }
-}
-
-async function route(request, env, url, session) {
-  const parts = url.pathname.split("/").filter(Boolean); // ["aula","api","expedientes", ":id"?]
+  const parts = url.pathname.split("/").filter(Boolean);
   const id = parts[3] || null;
 
-  // ---------- LISTAR ----------
   if (!id && request.method === "GET") {
     const { results } = await env.DB.prepare(
-      `SELECT id, tipo, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por, updated_at
+      `SELECT id, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por, fecha_consulta, hora_inicio_hc, updated_at
        FROM expedientes ORDER BY updated_at DESC`
     ).all();
     return json({ ok: true, expedientes: results });
   }
 
-  // ---------- CREAR ----------
   if (!id && request.method === "POST") {
-    const body = await readBody(request);
-    if (!body) return json({ ok: false, error: "bad_request" }, 400);
-
-    const tipo = body.tipo === undefined ? "general" : body.tipo;
-    if (!TIPOS.includes(tipo)) return json({ ok: false, error: "invalid_tipo" }, 400);
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ ok: false, error: "bad_request" }, 400);
+    }
 
     const nombre = sanitizeText(body.nombre, 200);
     if (!nombre) return json({ ok: false, error: "missing_nombre" }, 400);
 
-    const datosJson = JSON.stringify(cleanDatos(body.datos));
-    if (new TextEncoder().encode(datosJson).length > MAX_DATOS_BYTES) {
-      return json({ ok: false, error: "too_large" }, 413);
-    }
-
     const now = Date.now();
-    const newId = crypto.randomUUID();
-
-    const columns = [
-      "id", "tipo", "nombre", "sexo", "edad", "fecha_nacimiento", "dui", "consulta_por",
-      ...LIST_FIELDS,
-      "datos", "created_by", "created_at", "updated_at",
-    ];
-    const values = [
-      newId,
-      tipo,
+    const record = {
+      id: crypto.randomUUID(),
       nombre,
-      sanitizeText(body.sexo, 30),
-      normalizeEdad(body.edad),
-      sanitizeText(body.fecha_nacimiento, 20),
-      sanitizeText(body.dui, 20),
-      sanitizeText(body.consulta_por, 500),
-      ...LIST_FIELDS.map((f) => JSON.stringify(normalizeListField(body[f]))),
-      datosJson,
-      session.username,
-      now,
-      now,
-    ];
+      sexo: sanitizeText(body.sexo, 30),
+      edad: Number.isFinite(Number(body.edad)) ? Number(body.edad) : null,
+      fecha_nacimiento: sanitizeText(body.fecha_nacimiento, 20),
+      dui: sanitizeText(body.dui, 20),
+      consulta_por: sanitizeText(body.consulta_por, 500),
+      fecha_consulta: sanitizeText(body.fecha_consulta, 20),
+      hora_inicio_hc: sanitizeText(body.hora_inicio_hc, 10),
+      presente_enfermedad: sanitizeText(body.presente_enfermedad, 3000),
+      examen_fisico: sanitizeText(body.examen_fisico, 3000),
+      medico_nombre: sanitizeText(body.medico_nombre, 200),
+      numero_junta: sanitizeText(body.numero_junta, 50),
+      created_by: session.username,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const lists = {};
+    for (const field of LIST_FIELDS) lists[field] = JSON.stringify(normalizeListField(body[field]));
 
     await env.DB.prepare(
-      `INSERT INTO expedientes (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`
+      `INSERT INTO expedientes
+        (id, nombre, sexo, edad, fecha_nacimiento, dui, consulta_por,
+         fecha_consulta, hora_inicio_hc, presente_enfermedad, examen_fisico,
+         medico_nombre, numero_junta,
+         antecedentes, alergias, medicamentos, signos_vitales, consultas,
+         diagnosticos, tratamientos, seguimientos, actividades,
+         created_by, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
-      .bind(...values)
+      .bind(
+        record.id,
+        record.nombre,
+        record.sexo,
+        record.edad,
+        record.fecha_nacimiento,
+        record.dui,
+        record.consulta_por,
+        record.fecha_consulta,
+        record.hora_inicio_hc,
+        record.presente_enfermedad,
+        record.examen_fisico,
+        record.medico_nombre,
+        record.numero_junta,
+        lists.antecedentes,
+        lists.alergias,
+        lists.medicamentos,
+        lists.signos_vitales,
+        lists.consultas,
+        lists.diagnosticos,
+        lists.tratamientos,
+        lists.seguimientos,
+        lists.actividades,
+        record.created_by,
+        record.created_at,
+        record.updated_at
+      )
       .run();
 
-    return json({ ok: true, id: newId });
+    return json({ ok: true, id: record.id });
   }
 
-  // ---------- OBTENER UNO ----------
   if (id && request.method === "GET") {
     const row = await env.DB.prepare("SELECT * FROM expedientes WHERE id = ?").bind(id).first();
     if (!row) return json({ ok: false, error: "not_found" }, 404);
     return json({ ok: true, expediente: rowToExpediente(row) });
   }
 
-  // ---------- ACTUALIZAR ----------
   if (id && request.method === "PUT") {
-    const body = await readBody(request);
-    if (!body) return json({ ok: false, error: "bad_request" }, 400);
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ ok: false, error: "bad_request" }, 400);
+    }
 
-    const existing = await env.DB.prepare("SELECT id, datos FROM expedientes WHERE id = ?").bind(id).first();
+    const existing = await env.DB.prepare("SELECT id FROM expedientes WHERE id = ?").bind(id).first();
     if (!existing) return json({ ok: false, error: "not_found" }, 404);
 
     const nombre = sanitizeText(body.nombre, 200);
     if (!nombre) return json({ ok: false, error: "missing_nombre" }, 400);
 
-    // El tipo de un expediente no cambia una vez creado.
-    const assignments = ["nombre", "sexo", "edad", "fecha_nacimiento", "dui", "consulta_por"];
-    const values = [
-      nombre,
-      sanitizeText(body.sexo, 30),
-      normalizeEdad(body.edad),
-      sanitizeText(body.fecha_nacimiento, 20),
-      sanitizeText(body.dui, 20),
-      sanitizeText(body.consulta_por, 500),
-    ];
-
-    // Solo se tocan las secciones que realmente vienen en la petición.
-    for (const f of LIST_FIELDS) {
-      if (body[f] !== undefined) {
-        assignments.push(f);
-        values.push(JSON.stringify(normalizeListField(body[f])));
-      }
-    }
-
-    if (body.datos !== undefined) {
-      // MEZCLA con lo ya guardado: un campo que el panel no envía (porque se quitó
-      // del formulario o el navegador tiene una versión vieja) se conserva tal cual.
-      // Para vaciar un campo a propósito, el panel envía "" y eso sí lo sobrescribe.
-      const merged = { ...parseJson(existing.datos, {}), ...cleanDatos(body.datos) };
-      const datosJson = JSON.stringify(merged);
-      if (new TextEncoder().encode(datosJson).length > MAX_DATOS_BYTES) {
-        return json({ ok: false, error: "too_large" }, 413);
-      }
-      assignments.push("datos");
-      values.push(datosJson);
-    }
-
-    assignments.push("updated_at");
-    values.push(Date.now());
-    values.push(id);
+    const lists = {};
+    for (const field of LIST_FIELDS) lists[field] = JSON.stringify(normalizeListField(body[field]));
 
     await env.DB.prepare(
-      `UPDATE expedientes SET ${assignments.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`
+      `UPDATE expedientes SET
+         nombre=?, sexo=?, edad=?, fecha_nacimiento=?, dui=?, consulta_por=?,
+         fecha_consulta=?, hora_inicio_hc=?, presente_enfermedad=?, examen_fisico=?,
+         medico_nombre=?, numero_junta=?,
+         antecedentes=?, alergias=?, medicamentos=?, signos_vitales=?, consultas=?,
+         diagnosticos=?, tratamientos=?, seguimientos=?, actividades=?, updated_at=?
+       WHERE id=?`
     )
-      .bind(...values)
+      .bind(
+        nombre,
+        sanitizeText(body.sexo, 30),
+        Number.isFinite(Number(body.edad)) ? Number(body.edad) : null,
+        sanitizeText(body.fecha_nacimiento, 20),
+        sanitizeText(body.dui, 20),
+        sanitizeText(body.consulta_por, 500),
+        sanitizeText(body.fecha_consulta, 20),
+        sanitizeText(body.hora_inicio_hc, 10),
+        sanitizeText(body.presente_enfermedad, 3000),
+        sanitizeText(body.examen_fisico, 3000),
+        sanitizeText(body.medico_nombre, 200),
+        sanitizeText(body.numero_junta, 50),
+        lists.antecedentes,
+        lists.alergias,
+        lists.medicamentos,
+        lists.signos_vitales,
+        lists.consultas,
+        lists.diagnosticos,
+        lists.tratamientos,
+        lists.seguimientos,
+        lists.actividades,
+        Date.now(),
+        id
+      )
       .run();
 
     return json({ ok: true });
   }
 
-  // ---------- BORRAR ----------
   if (id && request.method === "DELETE") {
     const existing = await env.DB.prepare("SELECT id FROM expedientes WHERE id = ?").bind(id).first();
     if (!existing) return json({ ok: false, error: "not_found" }, 404);

@@ -41,16 +41,8 @@
       <!-- ---------- Columna: lista ---------- -->
       <section class="list-pane" aria-label="Lista de expedientes">
         <div class="list-pane-head">
-          <div class="list-pane-head-row">
-            <input type="search" id="searchInput" class="search-input" placeholder="Buscar por nombre o DUI…" autocomplete="off">
-            <button type="button" class="btn-primary btn-new" id="newBtn">+ Nuevo</button>
-          </div>
-          <select id="typeFilter" class="type-filter" aria-label="Filtrar por tipo de expediente">
-            <option value="">Todos los tipos</option>
-            <option value="general">Medicina general</option>
-            <option value="nino_sano">Control de niño sano</option>
-            <option value="psicologico">Expediente psicológico</option>
-          </select>
+          <input type="search" id="searchInput" class="search-input" placeholder="Buscar por nombre o DUI…" autocomplete="off">
+          <button type="button" class="btn-primary btn-new" id="newBtn">+ Nuevo</button>
         </div>
         <div class="list-scroll" id="listScroll">
           <div class="list-empty" id="listEmpty">Cargando expedientes…</div>

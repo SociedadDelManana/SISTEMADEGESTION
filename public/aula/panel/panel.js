@@ -33,6 +33,16 @@
   // Bloque de registros repetibles (se pueden agregar tantos como se necesite)
   const list = (key, title, fields) => ({ kind: "list", key, title, fields });
 
+  // Bloque de firma al final del expediente (nombre de quien dio la consulta + número de junta).
+  // Se llena en blanco; lo escribe quien atiende.
+  const firma = () => ({
+    ...group("Firma", [
+      text("medico_nombre", "Nombre de quien dio la consulta"),
+      text("numero_junta", "Número de junta"),
+    ]),
+    signature: true,
+  });
+
   const sistemas = (nino) => [
     area("ef_cabeza_cuello", "Cabeza y cuello"),
     area("ef_ojos", nino ? "Ojos (reflejo rojo, alineación, etc.)" : "Ojos"),
@@ -92,10 +102,7 @@
         list("actividades", "Actividades donde fue atendido", [
           date("fecha"), text("actividad", "Actividad"), text("lugar", "Lugar"),
         ]),
-        { ...group("Firma", [
-          text("medico_nombre", "Nombre de quien dio la consulta"),
-          text("numero_junta", "Número de junta"),
-        ]), signature: true },
+        firma(),
       ],
     },
 
@@ -178,7 +185,7 @@
           date("proxima_cita", "Fecha de la próxima cita"),
           text("proxima_cita_motivo", "Motivo"),
         ]),
-        group("Médico responsable", [text("medico_responsable", "Nombre del médico", { wide: true })]),
+        firma(),
       ],
     },
 
@@ -227,6 +234,7 @@
         ]),
         list("notas_sesion", "Notas de sesión", [date("fecha"), area("notas", "Notas")]),
         list("seguimientos", "Seguimiento", [date("fecha"), area("notas", "Notas")]),
+        firma(),
       ],
     },
   };
@@ -322,6 +330,9 @@
     m._extra = {};
     if (tipo === "general") {
       GENERAL_COLUMNS.forEach((k) => { m[k] = row[k] ?? ""; });
+    }
+    if (tipo === "nino_sano" && !hasValue(m.medico_nombre) && hasValue((row.datos || {}).medico_responsable)) {
+      m.medico_nombre = row.datos.medico_responsable;
     }
     for (const [k, v] of Object.entries(row.datos || {})) {
       if (tipo === "general" && GENERAL_COLUMNS.includes(k)) {

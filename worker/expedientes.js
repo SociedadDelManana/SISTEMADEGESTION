@@ -162,7 +162,7 @@ async function route(request, env, url, session) {
     const body = await readBody(request);
     if (!body) return json({ ok: false, error: "bad_request" }, 400);
 
-    const existing = await env.DB.prepare("SELECT id FROM expedientes WHERE id = ?").bind(id).first();
+    const existing = await env.DB.prepare("SELECT id, datos FROM expedientes WHERE id = ?").bind(id).first();
     if (!existing) return json({ ok: false, error: "not_found" }, 404);
 
     const nombre = sanitizeText(body.nombre, 200);
@@ -188,7 +188,11 @@ async function route(request, env, url, session) {
     }
 
     if (body.datos !== undefined) {
-      const datosJson = JSON.stringify(cleanDatos(body.datos));
+      // MEZCLA con lo ya guardado: un campo que el panel no envía (porque se quitó
+      // del formulario o el navegador tiene una versión vieja) se conserva tal cual.
+      // Para vaciar un campo a propósito, el panel envía "" y eso sí lo sobrescribe.
+      const merged = { ...parseJson(existing.datos, {}), ...cleanDatos(body.datos) };
+      const datosJson = JSON.stringify(merged);
       if (new TextEncoder().encode(datosJson).length > MAX_DATOS_BYTES) {
         return json({ ok: false, error: "too_large" }, 413);
       }

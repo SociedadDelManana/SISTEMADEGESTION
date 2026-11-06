@@ -595,7 +595,6 @@
   function renderView(rec) {
     const cfg = TYPES[rec.tipo];
     const blocks = cfg.blocks.map((b, i) => renderViewBlock(b, rec, i === 0)).join("");
-    const updated = rec.updated_at ? new Date(rec.updated_at).toLocaleString("es-SV") : "—";
     return `
       <div class="detail-header">
         <div class="detail-title-row">
@@ -607,7 +606,7 @@
           <button type="button" class="btn-danger" id="deleteBtn">Eliminar</button>
         </div>
       </div>
-      <p class="detail-subline">${escapeHtml(cfg.label)} · Actualizado ${escapeHtml(updated)}</p>
+      <p class="detail-subline">${escapeHtml(cfg.label)}</p>
       ${blocks}`;
   }
 

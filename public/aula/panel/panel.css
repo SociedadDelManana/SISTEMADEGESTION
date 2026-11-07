@@ -574,3 +574,121 @@ body {
 .signature-block label { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 1px; }
 .signature-block input { text-align: right; font-size: 13px; padding: 7px 10px; }
 .signature-block .info-value { font-size: 13.5px; }
+
+/* =====================================================
+   Curvas de crecimiento OMS
+   ===================================================== */
+
+/* Campos que se calculan solos */
+.field input[readonly] {
+  background: var(--gray-100);
+  color: var(--navy-800);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  cursor: default;
+}
+.field input[readonly]::placeholder { color: var(--gray-500); font-style: italic; }
+
+.growth-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.growth-tab {
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  color: var(--gray-700);
+  border-radius: 20px;
+  padding: 6px 13px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.growth-tab:hover:not(:disabled) { border-color: var(--navy-600); color: var(--navy-700); }
+.growth-tab.active { background: var(--navy-900); border-color: var(--navy-900); color: var(--white); }
+.growth-tab:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.growth-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+}
+.growth-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--navy-900); }
+
+.growth-ranges { display: inline-flex; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); overflow: hidden; }
+.growth-range {
+  background: var(--white);
+  border: none;
+  padding: 6px 11px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+.growth-range + .growth-range { border-left: 1px solid var(--gray-200); }
+.growth-range:hover { background: var(--navy-soft); }
+.growth-range.active { background: var(--navy-soft-2); color: var(--navy-900); }
+
+.growth-note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--gray-700);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 10px 13px;
+  margin: 0 0 10px;
+}
+.growth-hint { font-size: 12px; color: var(--gray-500); margin: 8px 0 0; line-height: 1.5; }
+
+.growth-chart {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+}
+.oms-svg { width: 100%; height: auto; display: block; }
+.oms-bg { fill: var(--white); }
+.oms-grid { stroke: var(--gray-200); stroke-width: 1; }
+.oms-grid-minor { stroke: var(--gray-100); stroke-width: 1; }
+.oms-axis { stroke: var(--gray-500); stroke-width: 1; fill: none; }
+.oms-tick { font-family: var(--font-mono); font-size: 11px; fill: var(--gray-700); }
+.oms-axis-title { font-family: var(--font-body); font-size: 12px; font-weight: 600; fill: var(--gray-700); }
+
+.oms-curve { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.oms-c3, .oms-c97 { stroke: #7a93a6; stroke-width: 1.7; }
+.oms-c15, .oms-c85 { stroke: #a8bbc9; stroke-width: 1.5; }
+.oms-p50 { stroke: var(--navy-600); stroke-width: 2.8; }
+.oms-curve-label { font-family: var(--font-mono); font-size: 11px; fill: var(--gray-700); }
+
+.oms-trace { fill: none; stroke: var(--navy-900); stroke-width: 2; stroke-dasharray: 5 4; }
+.oms-pt { fill: var(--navy-900); stroke: var(--white); stroke-width: 2; cursor: pointer; }
+.oms-pt-ring { fill: rgba(20, 42, 56, 0.12); stroke: var(--navy-900); stroke-width: 1.5; }
+.oms-pt-tag {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--navy-900);
+  paint-order: stroke;
+  stroke: var(--white);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.growth-table-wrap { overflow-x: auto; margin-top: 10px; }
+.growth-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.growth-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--gray-200);
+  white-space: nowrap;
+}
+.growth-table td { padding: 7px 8px; border-bottom: 1px solid var(--gray-100); color: var(--gray-900); white-space: nowrap; }
+.growth-table tr.last td { font-weight: 600; background: var(--navy-soft); }

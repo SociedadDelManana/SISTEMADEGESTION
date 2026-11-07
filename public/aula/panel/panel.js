@@ -32,6 +32,8 @@
   const group = (title, fields) => ({ kind: "fields", title, fields });
   // Bloque de registros repetibles (se pueden agregar tantos como se necesite)
   const list = (key, title, fields) => ({ kind: "list", key, title, fields });
+  // Bloque de curvas OMS (no guarda datos propios: se dibuja con lo que hay en "Crecimiento")
+  const growth = (title) => ({ kind: "growth", title });
 
   // Bloque de firma al final del expediente (nombre de quien dio la consulta + número de junta).
   // Se llena en blanco; lo escribe quien atiende.
@@ -118,18 +120,21 @@
           text("edad", "Edad", { placeholder: "ej. 8 meses, 3 años" }),
           time("hora", "Hora"),
           select("tipo_visita", "Tipo de visita", ["Control sano", "Seguimiento"]),
-          select("tipo_control", "Tipo de control", ["0-5 años", "6-10 años"]),
         ]),
         list("crecimiento", "Crecimiento", [
           date("fecha"),
-          text("peso", "Peso (kg)"),
-          text("talla", "Talla / estatura (cm)"),
-          text("perimetro_cefalico", "Perímetro cefálico (cm)"),
-          text("imc", "IMC"),
-          text("peso_edad", "Peso / edad"),
-          text("talla_edad", "Talla / edad"),
-          text("pc_edad", "PC / edad"),
+          text("peso", "Peso (kg)", { inputmode: "decimal" }),
+          text("talla", "Talla / estatura (cm)", { inputmode: "decimal" }),
+          text("perimetro_cefalico", "Perímetro cefálico (cm)", { inputmode: "decimal" }),
+          // Se calculan solos con las tablas de la OMS
+          text("imc", "IMC", { computed: true }),
+          text("peso_edad", "Peso / edad", { computed: true }),
+          text("talla_edad", "Talla / edad", { computed: true }),
+          text("pc_edad", "PC / edad", { computed: true }),
+          text("imc_edad", "IMC / edad", { computed: true }),
+          text("peso_talla", "Peso / talla", { computed: true }),
         ]),
+        growth("Curvas de crecimiento OMS"),
         group("Motivo de consulta y enfermedad actual", [
           area("consulta_por", "Motivo de consulta", { wide: true }),
           area("presente_enfermedad", "Presente enfermedad", { wide: true }),
@@ -302,7 +307,7 @@
     const keys = new Set();
     for (const b of TYPES[tipo].blocks) {
       if (b.kind === "fields") b.fields.forEach((f) => keys.add(f.name));
-      else keys.add(b.key);
+      else if (b.kind === "list") keys.add(b.key);
     }
     return keys;
   }
@@ -311,7 +316,7 @@
     const d = { id: null, tipo, _extra: {} };
     for (const b of TYPES[tipo].blocks) {
       if (b.kind === "fields") b.fields.forEach((f) => { d[f.name] = ""; });
-      else d[b.key] = [];
+      else if (b.kind === "list") d[b.key] = [];
     }
     return d;
   }
@@ -358,7 +363,7 @@
     };
     for (const b of TYPES[d.tipo].blocks) {
       if (b.kind === "fields") b.fields.forEach((f) => put(f.name, d[f.name] ?? ""));
-      else put(b.key, (d[b.key] || []).filter((item) => Object.values(item).some(hasValue)));
+      else if (b.kind === "list") put(b.key, (d[b.key] || []).filter((item) => Object.values(item).some(hasValue)));
     }
     return payload;
   }
@@ -469,6 +474,7 @@
   async function openExpediente(id) {
     activeId = id;
     mode = "view";
+    growthUI.range = null;
     renderList();
     detailEmpty.classList.add("hidden");
     detailContent.classList.remove("hidden");
@@ -497,6 +503,7 @@
       detailContent.classList.remove("hidden");
       detailContent.innerHTML = renderForm(draft, true);
       wireForm(true);
+      refreshGrowth();
       return;
     }
     if (!activeRecord) {
@@ -513,6 +520,7 @@
       detailContent.innerHTML = renderView(activeRecord);
       wireView();
     }
+    refreshGrowth();
   }
 
   // ---------- Selector de tipo ----------
@@ -534,6 +542,7 @@
     detailContent.querySelectorAll(".type-card").forEach((btn) => {
       btn.addEventListener("click", () => {
         draft = emptyDraft(btn.getAttribute("data-type"));
+        growthUI.range = null;
         mode = "new";
         renderDetail();
       });
@@ -544,9 +553,82 @@
     });
   }
 
+  // ---------- Curvas de crecimiento OMS ----------
+  const growthUI = { ind: "wfa", range: null };
+  let growthTimer = null;
+
+  function renderGrowthBlock(block) {
+    return `
+      <div class="section-block growth-block">
+        <h3 class="section-block-title">${escapeHtml(block.title)} <span class="section-count">OMS</span></h3>
+        <div class="growth-panel" data-growth-panel></div>
+      </div>`;
+  }
+
+  function growthRecord() {
+    if (mode === "view") return activeRecord;
+    const form = $("expedienteForm");
+    if (form) syncDraftFromForm(form);
+    return draft;
+  }
+
+  // Escribe en cada registro de "Crecimiento" los valores que calcula la OMS.
+  function applyComputed(form, analysis) {
+    const block = form.querySelector('.section-block[data-list="crecimiento"]');
+    if (!block) return;
+    const cards = block.querySelectorAll(".entry-card");
+    analysis.entries.forEach((en, i) => {
+      const card = cards[i];
+      if (!card) return;
+      const vals = window.OMS.computedFields(en);
+      for (const [k, v] of Object.entries(vals)) {
+        const el = card.querySelector(`[data-field="${k}"]`);
+        if (!el) continue;
+        if (v !== null && v !== undefined) {
+          el.value = v;
+          el.setAttribute("data-auto", "1");
+        } else if (el.getAttribute("data-auto") === "1") {
+          el.value = "";
+          el.removeAttribute("data-auto");
+        }
+      }
+    });
+  }
+
+  function refreshGrowth() {
+    const panel = detailContent.querySelector("[data-growth-panel]");
+    if (!panel || !window.OMS) return;
+    const rec = growthRecord();
+    if (!rec) return;
+    const analysis = window.OMS.analyzeRecord(rec, new Date());
+    if (mode !== "view") applyComputed($("expedienteForm"), analysis);
+    panel.innerHTML = window.OMS.renderPanel(analysis, growthUI);
+  }
+
+  function scheduleGrowth() {
+    clearTimeout(growthTimer);
+    growthTimer = setTimeout(refreshGrowth, 120);
+  }
+
+  detailContent.addEventListener("click", (ev) => {
+    const tab = ev.target.closest("[data-gtab]");
+    if (tab && !tab.disabled) {
+      growthUI.ind = tab.getAttribute("data-gtab");
+      growthUI.range = null;
+      refreshGrowth();
+      return;
+    }
+    const rg = ev.target.closest("[data-grange]");
+    if (rg) {
+      growthUI.range = rg.getAttribute("data-grange");
+      refreshGrowth();
+    }
+  });
+
   // ---------- Vista de solo lectura ----------
   function renderViewBlock(block, rec, isFirst) {
     const first = isFirst ? " first" : "";
+    if (block.kind === "growth") return renderGrowthBlock(block);
 
     if (block.kind === "fields" && block.signature) {
       return `<div class="signature-block">${block.fields.map((f) => `
@@ -631,7 +713,10 @@
     if (f.type === "textarea") {
       return `<textarea ${attr}="${f.name}" rows="2">${v}</textarea>`;
     }
-    return `<input type="${f.type}" ${attr}="${f.name}" value="${v}"${f.required ? " required" : ""}${f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : ""}>`;
+    if (f.computed) {
+      return `<input type="text" ${attr}="${f.name}" value="${v}" readonly tabindex="-1" placeholder="automático">`;
+    }
+    return `<input type="${f.type}" ${attr}="${f.name}" value="${v}"${f.required ? " required" : ""}${f.inputmode ? ` inputmode="${f.inputmode}"` : ""}${f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : ""}>`;
   }
 
   function renderEntryRow(block, item, idx) {
@@ -651,6 +736,7 @@
 
   function renderFormBlock(block, d, isFirst) {
     const first = isFirst ? " first" : "";
+    if (block.kind === "growth") return renderGrowthBlock(block);
 
     if (block.kind === "fields" && block.signature) {
       return `<div class="signature-block">${block.fields.map((f) => `
@@ -725,6 +811,8 @@
 
   function wireForm(isNew) {
     const form = $("expedienteForm");
+    form.addEventListener("input", scheduleGrowth);
+    form.addEventListener("change", scheduleGrowth);
 
     function cancelEdit() {
       mode = "view";
@@ -765,6 +853,10 @@
     form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       syncDraftFromForm(form);
+      if (window.OMS && form.querySelector('.section-block[data-list="crecimiento"]')) {
+        applyComputed(form, window.OMS.analyzeRecord(draft, new Date()));
+        syncDraftFromForm(form);
+      }
 
       if (!hasValue(draft.nombre)) {
         showToast("El nombre es obligatorio.", "error");
